@@ -155,18 +155,21 @@ echo "export PATH=\"\$HOME/bin:\$HOME/node_modules/.bin:\$PATH\"" > $BUILD_DIR/.
 
 cd $BUILD_DIR
 
-curl --silent --location http://heroku-jvm-common.s3.amazonaws.com/jvm-buildpack-common.tar.gz | tar xz
+curl --silent --location http://heroku-jvm-common.s3.amazonaws.com/jvm-buildpack-common.tar.gz | tar xzm
+. bin/util
 . bin/java
+
+export_env_dir $ENV_DIR
 
 #create the cache dir if it doesn't exist
 mkdir -p $CACHE_DIR
 
-# create default system.properties 
+# create default system.properties
 if [ ! -f ${BUILD_DIR}/system.properties ]; then
-  echo "java.runtime.version=1.7" > ${BUILD_DIR}/system.properties
+  echo "java.runtime.version=1.6" > ${BUILD_DIR}/system.properties
 fi
 
-# install JDK 
+# install JDK
 javaVersion=$(detect_java_version ${BUILD_DIR})
 echo -n "-----> Installing OpenJDK ${javaVersion}..."
 install_java ${BUILD_DIR} ${javaVersion}
@@ -186,13 +189,9 @@ SBT_BINDIR="$SBT_USER_HOME"/bin
 cd $BUILD_DIR
 
 # unpack cache
-CACHED_DIRS="$SBT_USER_HOME/.ivy2 $SBT_BINDIR"
+CACHED_DIRS="$SBT_USER_HOME/.ivy2 $SBT_USER_HOME/boot $SBT_BINDIR target project/target project/boot"
 for DIR in $CACHED_DIRS; do
-  rm -rf $DIR
-  if [ -d $CACHE_DIR/$DIR ]; then
-    mkdir -p $DIR
-    cp -r $CACHE_DIR/$DIR/.  $DIR
-  fi
+  cache_copy $DIR $CACHE_DIR $BUILD_DIR
 done
 
 # these are preliminary checks. actual version check happens below when attempting to download sbt boot.properties
@@ -207,17 +206,20 @@ if ! has_supported_sbt_version ${BUILD_DIR}; then
 	echo " !      You must use a release verison of sbt, sbt.version=0.11.0 or greater"
 	exit 1
 fi
- 
+
 SBT_VERSION="$(get_supported_sbt_version ${BUILD_DIR})"
 SBT_JAR="sbt-launch.jar"
-SBT_PROPS="sbt-$SBT_VERSION.boot.properties"
-SBT_URL="http://typesafe.artifactoryonline.com/typesafe/ivy-releases/org.scala-sbt/sbt-launch/0.13.0/$SBT_JAR"
-SBT_PROPS_URL="http://s3.amazonaws.com/heroku-jvm-langpack-scala/$SBT_PROPS"
+SBT_URL="http://typesafe.artifactoryonline.com/typesafe/ivy-releases/org.scala-sbt/sbt-launch/0.13.5/$SBT_JAR"
 ## in 0.10 start-script will depend on package, if packaging
 ## is required - it may not be, we can run .class files or a package-war
 ## instead.
 SBT_TASKS="clean grunt compile stage"
 
+# To enable clean compiles, configure the environment to clean:
+# $ heroku config:set SBT_CLEAN=true
+# $ git push heroku master
+# See: https://devcenter.heroku.com/articles/scala-support#clean-builds
+[ "$SBT_CLEAN" = "true" ] && SBT_TASKS="clean $SBT_TASKS"
 
 if [ ! -d .ivy2/cache ]; then
    mkdir -p .ivy2/cache
@@ -230,35 +232,28 @@ if [ ! -f "$SBT_BINDIR"/"$SBT_JAR" ]; then
   ## clean up any old versions
   /bin/rm -f sbt sbt-launch-*.jar || true
 
-  echo "-----> Building app with sbt"
+  echo -n "-----> Downloading SBT..."
   curl --silent --max-time 60 -O --location $SBT_URL --fail || error "Failed to download $SBT_JAR"
-
-  echo "#!/usr/bin/env bash" > sbt
-  echo "/usr/bin/java -Dsbt.boot.properties=/app/.sbt_home/bin/sbt.boot.properties  -Duser.home=/app/.sbt_home -Divy.default.ivy.user.dir=/app/.sbt_home/.ivy2 -jar /app/.sbt_home/bin/$SBT_JAR \"\$@\"" >> sbt
-  chmod a+x sbt
+  echo "done"
 
   cd $BUILD_DIR
 fi
 
-if [ -f $OPT_DIR/$SBT_PROPS ]; then
-  cp $OPT_DIR/$SBT_PROPS $SBT_BINDIR/sbt.boot.properties
-else
-  error "Error, SBT version $SBT_VERSION not supported"
-fi
+# Install the custom sbt script for cmds like `heroku run sbt console`
+cp -p $OPT_DIR/sbt-launcher.sh $SBT_BINDIR/sbt
+chmod a+x $SBT_BINDIR/sbt
 
-# copy in heroku sbt plugin
-HEROKU_PLUGIN="HerokuPlugin.scala"
-mkdir -p "$SBT_USER_HOME/.sbt/plugins"
-cp $OPT_DIR/$HEROKU_PLUGIN $SBT_USER_HOME/.sbt/plugins/$HEROKU_PLUGIN
+# download and cache the dependencies if this is the first build
+if [ ! -d "$SBT_USER_HOME/.ivy2" ]; then
+  if is_sbt_native_packager $BUILD_DIR || is_play $BUILD_DIR; then
+    prime_ivy_cache "$BUILD_DIR" "$SBT_USER_HOME_ABSOLUTE" "$SBT_BINDIR/$SBT_JAR"
+    run_sbt "$SBT_USER_HOME_ABSOLUTE" "$SBT_BINDIR/$SBT_JAR" "update"
+    cache_copy $SBT_USER_HOME/.ivy2 $BUILD_DIR $CACHE_DIR
+  fi
+fi
 
 # build app
-echo "-----> Running: sbt $SBT_TASKS"
-test -e "$SBT_BINDIR"/sbt.boot.properties && PROPS_OPTION="-Dsbt.boot.properties=$SBT_BINDIR/sbt.boot.properties"
-HOME="$SBT_USER_HOME_ABSOLUTE" java -Xms768M -Xmx1024M -XX:MaxPermSize=512M -XX:+CMSClassUnloadingEnabled -Dfile.encoding=UTF8 -Duser.home="$SBT_USER_HOME_ABSOLUTE" -Dsbt.log.noformat=true -Divy.default.ivy.user.dir="$SBT_USER_HOME_ABSOLUTE/.ivy2" $PROPS_OPTION -jar "$SBT_BINDIR"/$SBT_JAR $SBT_TASKS 2>&1 | sed -u 's/^/       /'
-if [ "${PIPESTATUS[*]}" != "0 0" ]; then
-  echo " !     Failed to build app with sbt"
-  exit 1
-fi
+run_sbt "$SBT_USER_HOME_ABSOLUTE" "$SBT_BINDIR/$SBT_JAR" "$SBT_TASKS"
 
 PROFILE_PATH="$BUILD_DIR/.profile.d/scala.sh"
 mkdir -p $(dirname $PROFILE_PATH)
@@ -266,16 +261,12 @@ echo 'export PATH="/app/.jdk/bin:$PATH"' >> $PROFILE_PATH
 
 # repack cache
 mkdir -p $CACHE_DIR
-for DIR in $CACHED_DIRS ; do
-  rm -rf $CACHE_DIR/$DIR
-  mkdir -p $CACHE_DIR/$DIR
-  if [ -d $DIR ] ; then
-    cp -r $DIR/.  $CACHE_DIR/$DIR
-  fi
+for DIR in $CACHED_DIRS; do
+  cache_copy $DIR $BUILD_DIR $CACHE_DIR
 done
 
-# drop useless directories from slug for play only
-if is_play $BUILD_DIR ; then
+# drop useless directories from slug for play and sbt-native-launcher only
+if is_sbt_native_packager $BUILD_DIR || is_play $BUILD_DIR; then
   if [ -d $SBT_USER_HOME/.ivy2 ]; then
     echo "-----> Dropping ivy cache from the slug"
     rm -rf $SBT_USER_HOME/.ivy2
