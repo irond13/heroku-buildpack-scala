@@ -61,7 +61,7 @@ echo "-----> Resolving engine versions"
 #fi
 
 #NODE_VERSION=$(package_resolve_version "node")
-NODE_VERSION="0.10.28"
+NODE_VERSION="0.10.21"
 echo "Using Node.js version: ${NODE_VERSION}" | indent
 
 #NPM_VERSION=$(package_resolve_version "npm")
