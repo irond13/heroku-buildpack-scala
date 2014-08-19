@@ -13,9 +13,6 @@ set -e
 unset GIT_DIR
 
 # config
-SCONS_VERSION="1.2.0"
-S3_BUCKET="heroku-buildpack-nodejs"
-
 # parse and derive params
 UI_FILES="ui"
 BP_DIR=$(cd $(dirname $0)/..; pwd) # absolute path
@@ -26,93 +23,115 @@ OPT_DIR=$BP_DIR/opt
 # parse args
 BUILD_DIR=$(cd $1; pwd)
 CACHE_DIR=$2
-LP_DIR=`cd $(dirname $0); cd ..; pwd`
-LP_DIR="${LP_DIR}/${UI_FILES}"
+
+ui_build_dir="$UI_FILES/$1"
+cache_dir=$2
+env_dir=$3
+
+bp_dir=$(cd $(dirname $0); cd ..; pwd)
 
 printStructure
 
 trap cat_npm_debug_log EXIT
 
-bootstrap_node=$(mktmpdir bootstrap_node)
-package_download "nodejs" "0.4.7" $bootstrap_node
+# Look in package.json's engines.node field for a semver range
+semver_range=$(cat $ui_build_dir/package.json | $bp_dir/vendor/jq -r .engines.node)
 
-# make some associative arrays
-#declare -A engine_versions
-#declare -A engine_defaults
-#declare -A engine_requests
+# Resolve node version using semver.io
+node_version=$(curl --silent --get --data-urlencode "range=${semver_range}" https://semver.io/node/resolve)
 
-#engine_defaults["node"]="0.10.21"
-#engine_defaults["npm"]="1.3.5"
-#
-#engine_versions["node"]=$(manifest_versions "nodejs")
-#engine_requests["node"]=$(package_engine_version "node")
-#
-#engine_versions["npm"]=$(manifest_versions "npm")
-#engine_requests["npm"]=$(package_engine_version "npm")
+# Recommend using semver ranges in a safe manner
+if [ "$semver_range" == "null" ]; then
+  protip "Specify a node version in package.json"
+  semver_range=""
+elif [ "$semver_range" == "*" ]; then
+  protip "Avoid using semver ranges like '*' in engines.node"
+elif [ ${semver_range:0:1} == ">" ]; then
+  protip "Avoid using semver ranges starting with '>' in engines.node"
+fi
 
-echo "-----> Resolving engine versions"
+# Output info about requested range and resolved node version
+if [ "$semver_range" == "" ]; then
+  status "Defaulting to latest stable node: $node_version"
+else
+  status "Requested node range:  $semver_range"
+  status "Resolved node version: $node_version"
+fi
 
-# add a warning if no version of node specified
-#if [ "${engine_requests["node"]}" == "" ]; then
-#  echo
-#  echo "WARNING: No version of Node.js specified in package.json, see:" | indent
-#  echo "https://devcenter.heroku.com/articles/nodejs-support#versions" | indent
-#  echo
-#fi
+# Download node from Heroku's S3 mirror of nodejs.org/dist
+status "Downloading and installing node"
+node_url="http://s3pository.heroku.com/node/v$node_version/node-v$node_version-linux-x64.tar.gz"
+curl $node_url -s -o - | tar xzf - -C $ui_build_dir
 
-#NODE_VERSION=$(package_resolve_version "node")
-NODE_VERSION="0.10.21"
-echo "Using Node.js version: ${NODE_VERSION}" | indent
+# Move node (and npm) into ./vendor and make them executable
+mkdir -p $ui_build_dir/vendor
+mv $build_dir/node-v$node_version-linux-x64 $ui_build_dir/vendor/node
+chmod +x $ui_build_dir/vendor/node/bin/*
+PATH=$ui_build_dir/vendor/node/bin:$PATH
 
-#NPM_VERSION=$(package_resolve_version "npm")
-NPM_VERSION="1.3.11"
-echo "Using npm version: ${NPM_VERSION}" | indent
+# Run subsequent node/npm commands from the build path
+cd $ui_build_dir
 
-echo "----> NODE VERSION: ${NODE_VERSION}"
-echo "----> NPM VERSION: ${NPM_VERSION}"
+# If node_modules directory is checked into source control then
+# rebuild any native deps. Otherwise, restore from the build cache.
+if test -d $ui_build_dir/node_modules; then
+  status "Found existing node_modules directory; skipping cache"
+  status "Rebuilding any native dependencies"
+  npm rebuild 2>&1 | indent
+elif test -d $cache_dir/node/node_modules; then
+  status "Restoring node_modules directory from cache"
+  cp -r $cache_dir/node/node_modules $build_dir/
 
-# cache directories
-CACHE_STORE_DIR="$CACHE_DIR/$UI_FILES/node_modules/$NODE_VERSION/$NPM_VERSION"
-CACHE_TARGET_DIR="$BUILD_DIR/$UI_FILES/node_modules"
+  status "Pruning cached dependencies not specified in package.json"
+  npm prune 2>&1 | indent
 
-# s3 packages
-NODE_PACKAGE="http://${S3_BUCKET}.s3.amazonaws.com/nodejs-${NODE_VERSION}.tgz"
-NPM_PACKAGE="http://${S3_BUCKET}.s3.amazonaws.com/npm-${NPM_VERSION}.tgz"
-SCONS_PACKAGE="http://${S3_BUCKET}.s3.amazonaws.com/scons-${SCONS_VERSION}.tgz"
+  if test -f $cache_dir/node/.heroku/node-version && [ $(cat $cache_dir/node/.heroku/node-version) != "$node_version" ]; then
+    status "Node version changed since last build; rebuilding dependencies"
+    npm rebuild 2>&1 | indent
+  fi
 
-# vendor directories
-VENDORED_NODE="$(mktmpdir node)"
-VENDORED_NPM="$(mktmpdir npm)"
-VENDORED_SCONS="$(mktmpdir scons)"
+fi
 
-# download and unpack packages
-echo "-----> Fetching Node.js binaries"
-package_download "nodejs" "${NODE_VERSION}" "${VENDORED_NODE}"
-package_download "npm" "${NPM_VERSION}" "${VENDORED_NPM}"
-package_download "scons" "${SCONS_VERSION}" "${VENDORED_SCONS}"
+# Scope config var availability only to `npm install`
+(
+  if [ -d "$env_dir" ]; then
+    status "Exporting config vars to environment"
+    export_env_dir $env_dir
+  fi
 
-# vendor node into the slug
-PATH="$BUILD_DIR/$UI_FILES/bin:$PATH"
-echo "-----> Vendoring node into slug"
-mkdir -p "$BUILD_DIR/$UI_FILES/bin"
-cp "$VENDORED_NODE/bin/node" "$BUILD_DIR/$UI_FILES/bin/node"
+  status "Installing dependencies"
+  # Make npm output to STDOUT instead of its default STDERR
+  npm install --userconfig $ui_build_dir/.npmrc --production 2>&1 | indent
+  npm install -g yo
+  npm install -g grunt
+  npm install -g grunt-cli
+  npm install -g bower
+)
 
-# setting up paths for building
-PATH="$VENDORED_SCONS:$VENDORED_NODE/bin:$PATH"
-INCLUDE_PATH="$VENDORED_NODE/include"
-export CPATH="$INCLUDE_PATH:$CPATH"
-export CPPPATH="$INCLUDE_PATH:$CPPPATH"
+# Persist goodies like node-version in the slug
+mkdir -p $ui_build_dir/.heroku
 
-# install dependencies with npm
-echo "-----> Build dir in UI folder is $BUILD_DIR/$UI_FILES"
-echo "-----> Installing dependencies with npm"
-cd $BUILD_DIR/$UI_FILES
-run_npm "install"
-run_npm "install -g yo"
-run_npm "install -g grunt"
-run_npm "install -g grunt-cli"
-run_npm "install -g bower"
-run_npm "rebuild"
+# Save resolved node version in the slug for later reference
+echo $node_version > $ui_build_dir/.heroku/node-version
+
+# Purge node-related cached content, being careful not to purge the top-level
+# cache, for the sake of heroku-buildpack-multi apps.
+rm -rf $cache_dir/node_modules # (for apps still on the older caching strategy)
+rm -rf $cache_dir/node
+mkdir -p $cache_dir/node
+
+# If app has a node_modules directory, cache it.
+if test -d $ui_build_dir/node_modules; then
+  status "Caching node_modules directory for future builds"
+  cp -r $ui_build_dir/node_modules $cache_dir/node
+fi
+
+# Copy goodies to the cache
+cp -r $ui_build_dir/.heroku $cache_dir/node
+
+status "Cleaning up node-gyp and npm artifacts"
+rm -rf "$ui_build_dir/.node-gyp"
+rm -rf "$ui_build_dir/.npm"
 
 # install compass
 echo "-----> Installing compass"
