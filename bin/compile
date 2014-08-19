@@ -37,8 +37,12 @@ trap cat_npm_debug_log EXIT
 # Look in package.json's engines.node field for a semver range
 semver_range=$(cat $ui_build_dir/package.json | $bp_dir/vendor/jq -r .engines.node)
 
+status "Got semver $semver_range"
+
 # Resolve node version using semver.io
 node_version=$(curl --silent --get --data-urlencode "range=${semver_range}" https://semver.io/node/resolve)
+
+status "Checking node versions"
 
 # Recommend using semver ranges in a safe manner
 if [ "$semver_range" == "null" ]; then
@@ -57,6 +61,8 @@ else
   status "Requested node range:  $semver_range"
   status "Resolved node version: $node_version"
 fi
+
+status "Using node $node_version"
 
 # Download node from Heroku's S3 mirror of nodejs.org/dist
 status "Downloading and installing node"
