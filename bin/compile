@@ -33,17 +33,17 @@ bp_dir=$(cd $(dirname $0); cd ..; pwd)
 printStructure
 
 trap cat_npm_debug_log EXIT
-status "jq_check $bp_dir"
+echo "jq_check $bp_dir"
 
 # Look in package.json's engines.node field for a semver range
 semver_range=$(cat $ui_build_dir/package.json | $bp_dir/vendor/jq -r .engines.node)
 
-status "Got semver $semver_range"
+echo "Got semver $semver_range"
 
 # Resolve node version using semver.io
 node_version=$(curl --silent --get --data-urlencode "range=${semver_range}" https://semver.io/node/resolve)
 
-status "Checking node versions"
+echo "Checking node versions"
 
 # Recommend using semver ranges in a safe manner
 if [ "$semver_range" == "null" ]; then
