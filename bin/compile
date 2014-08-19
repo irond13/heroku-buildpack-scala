@@ -33,6 +33,7 @@ bp_dir=$(cd $(dirname $0); cd ..; pwd)
 printStructure
 
 trap cat_npm_debug_log EXIT
+status "jq_check $bp_dir"
 
 # Look in package.json's engines.node field for a semver range
 semver_range=$(cat $ui_build_dir/package.json | $bp_dir/vendor/jq -r .engines.node)
