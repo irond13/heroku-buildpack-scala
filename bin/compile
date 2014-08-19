@@ -24,7 +24,7 @@ OPT_DIR=$BP_DIR/opt
 BUILD_DIR=$(cd $1; pwd)
 CACHE_DIR=$2
 
-ui_build_dir="$UI_FILES/$1"
+ui_build_dir="$1/$UI_FILES"
 cache_dir=$2
 env_dir=$3
 
