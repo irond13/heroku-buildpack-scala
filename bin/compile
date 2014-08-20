@@ -116,17 +116,20 @@ fi
   npm install -g grunt
   echo "Installed grunt"
   ls -la $ui_build_dir/vendor/node/lib/node_modules/grunt
+  ls -la $ui_build_dir/vendor/node/lib/node_modules/grunt/bin
 
   status "Installing grunt-cli"
-  echo "Installed grunt-cli"
-  ls -la $ui_build_dir/vendor/node/lib/node_modules/grunt-cli
   
   npm install -g grunt-cli
+  echo "Installed grunt-cli"
+  ls -la $ui_build_dir/vendor/node/lib/node_modules/grunt-cli
+  ls -la $ui_build_dir/vendor/node/lib/node_modules/grunt-cli/bin
   status "Installing bower"
   npm install -g bower
 )
 
 echo "Path $PATH"
+ls -la $ui_build_dir/vendor/node/bin
 
 # Persist goodies like node-version in the slug
 mkdir -p $ui_build_dir/.heroku
