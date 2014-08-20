@@ -33,7 +33,6 @@ bp_dir=$(cd $(dirname $0); cd ..; pwd)
 printStructure
 
 trap cat_npm_debug_log EXIT
-echo "jq_check $bp_dir"
 
 # Look in package.json's engines.node field for a semver range
 semver_range=$(cat $ui_build_dir/package.json | $bp_dir/vendor/jq -r .engines.node)
@@ -42,7 +41,6 @@ echo "Got semver $semver_range"
 
 # Resolve node version using semver.io
 node_version=$(curl --silent --get --data-urlencode "range=${semver_range}" https://semver.io/node/resolve)
-#node_version="0.10.28"
 
 echo "Checking node versions"
 
@@ -113,11 +111,11 @@ fi
   npm install 2>&1 | indent
   status "Installing yo"
   npm install -g yo
-  status "Installing grunt"
+  #status "Installing grunt"
   #npm install grunt
-  status "Installing grunt-cli"
+  #status "Installing grunt-cli"
   #npm install -g grunt-cli
-  status "Installing bower"
+  #status "Installing bower"
   #npm install -g bower
 )
 
@@ -215,11 +213,17 @@ SBT_BINDIR="$SBT_USER_HOME"/bin
 # chdir as sbt expects
 cd $BUILD_DIR
 
+status "pre sbt cache"
+ls $cache_dir/node/node_modules
+
 # unpack cache
 CACHED_DIRS="$SBT_USER_HOME/.ivy2 $SBT_USER_HOME/boot $SBT_BINDIR target project/target project/boot"
 for DIR in $CACHED_DIRS; do
   cache_copy $DIR $CACHE_DIR $BUILD_DIR
 done
+
+status "post sbt cache"
+ls $cache_dir/node/node_modules
 
 # these are preliminary checks. actual version check happens below when attempting to download sbt boot.properties
 if ! test -e project/build.properties; then
@@ -309,5 +313,8 @@ if is_sbt_native_packager $BUILD_DIR || is_play $BUILD_DIR; then
     rm -rf $BUILD_DIR/target/resolution-cache
   fi
 fi
+
+status "final cache"
+ls $cache_dir/node/node_modules
 
 ###### SBT Setup END #####
