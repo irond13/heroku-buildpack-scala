@@ -73,7 +73,7 @@ curl $node_url -s -o - | tar xzf - -C $ui_build_dir
 
 # Move node (and npm) into ./vendor and make them executable
 mkdir -p $ui_build_dir/vendor
-mv $build_dir/node-v$node_version-linux-x64 $ui_build_dir/vendor/node
+mv $ui_build_dir/node-v$node_version-linux-x64 $ui_build_dir/vendor/node
 chmod +x $ui_build_dir/vendor/node/bin/*
 PATH=$ui_build_dir/vendor/node/bin:$PATH
 
