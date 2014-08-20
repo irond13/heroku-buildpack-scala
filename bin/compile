@@ -112,14 +112,13 @@ fi
   # Make npm output to STDOUT instead of its default STDERR
   npm install 2>&1 | indent
   status "Installing yo"
-  npm install yo
+  npm install -g yo
   status "Installing grunt"
-  npm install grunt
+  #npm install grunt
   status "Installing grunt-cli"
-  npm install -g grunt-cli
+  #npm install -g grunt-cli
   status "Installing bower"
-  npm install bower
-  PATH=$ui_build_dir/node_modules/bower/bin:$PATH
+  #npm install -g bower
 )
 
 # Persist goodies like node-version in the slug
