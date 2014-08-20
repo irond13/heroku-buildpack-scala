@@ -174,7 +174,7 @@ fi
 # If app has a bower_components directory, cache it.
 if test -d $ui_build_dir/app/bower_components; then
   status "Caching bower_components directory for future builds"
-  cp -r $ui_build_dir/bower_components $cache_dir/node
+  cp -r $ui_build_dir/app/bower_components $cache_dir/node
 fi
 
 echo "-----> Building runtime environment"
