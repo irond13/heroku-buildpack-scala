@@ -119,6 +119,7 @@ fi
   npm install -g grunt-cli
   status "Installing bower"
   npm install bower
+  PATH=$ui_build_dir/node_modules/bower/bin:$PATH
 )
 
 # Persist goodies like node-version in the slug
@@ -136,7 +137,10 @@ mkdir -p $cache_dir/node
 # If app has a node_modules directory, cache it.
 if test -d $ui_build_dir/node_modules; then
   status "Caching node_modules directory for future builds"
+  ls $ui_build_dir/node_modules
   cp -r $ui_build_dir/node_modules $cache_dir/node
+  status "cached"
+  ls $cache_dir/node/node_modules
 fi
 
 # Copy goodies to the cache
