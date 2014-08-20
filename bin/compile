@@ -110,9 +110,13 @@ fi
   status "Installing dependencies"
   # Make npm output to STDOUT instead of its default STDERR
   npm install --userconfig $ui_build_dir/.npmrc --production 2>&1 | indent
+  status "Installing yo"
   npm install -g yo
+  status "Installing grunt"
   npm install -g grunt
+  status "Installing grunt-cli"
   npm install -g grunt-cli
+  status "Installing bower"
   npm install -g bower
 )
 
