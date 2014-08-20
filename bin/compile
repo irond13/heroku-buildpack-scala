@@ -112,23 +112,14 @@ fi
   # Make npm output to STDOUT instead of its default STDERR
   npm install 2>&1 | indent
   status "Installing yo"
-  npm install -g yo
+  npm install yo
   status "Installing grunt"
-  npm install -g grunt
-  echo "Installed grunt"
-  #ls -la $ui_build_dir/vendor/node/lib/node_modules/grunt
-
+  npm install grunt
   status "Installing grunt-cli"
-  
   npm install -g grunt-cli
-  echo "Installed grunt-cli"
-  ls -la $ui_build_dir/vendor/node/lib/node_modules/grunt-cli
-  ls -la $ui_build_dir/vendor/node/lib/node_modules/grunt-cli/bin
   status "Installing bower"
-  npm install -g bower
+  npm install bower
 )
-
-ls $ui_build_dir/node_modules
 
 # Persist goodies like node-version in the slug
 mkdir -p $ui_build_dir/.heroku
@@ -147,10 +138,6 @@ if test -d $ui_build_dir/node_modules; then
   status "Caching node_modules directory for future builds"
   cp -r $ui_build_dir/node_modules $cache_dir/node
 fi
-
-#grunt
-
-#exit 1
 
 # Copy goodies to the cache
 cp -r $ui_build_dir/.heroku $cache_dir/node
@@ -181,14 +168,6 @@ if [ -f $BUILD_DIR/$UI_FILES/bower.json ]; then
 else
   echo "-----> No Bower.json found"
 fi
-
-#if [ -f $BUILD_DIR/$UI_FILES/grunt.js ] || [ -f $BUILD_DIR/$UI_FILES/Gruntfile.js ] || [ -f $BUILD_DIR/$UI_FILES/Gruntfile.coffee ]; then
-#  echo "-----> Found Gruntfile, running grunt task"
-#  grunt
-#  cd ..
-#else
-#  echo "-----> No Gruntfile (grunt.js, Gruntfile.js, Gruntfile.coffee) found"
-#fi
 
 echo "-----> Building runtime environment"
 
@@ -258,7 +237,7 @@ SBT_URL="http://typesafe.artifactoryonline.com/typesafe/ivy-releases/org.scala-s
 ## in 0.10 start-script will depend on package, if packaging
 ## is required - it may not be, we can run .class files or a package-war
 ## instead.
-SBT_TASKS="clean grunt compile stage"
+SBT_TASKS="compile stage"
 
 # To enable clean compiles, configure the environment to clean:
 # $ heroku config:set SBT_CLEAN=true
