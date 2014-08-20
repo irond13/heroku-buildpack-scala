@@ -116,7 +116,6 @@ fi
   npm install -g grunt
   echo "Installed grunt"
   ls -la $ui_build_dir/vendor/node/lib/node_modules/grunt
-  ls -la $ui_build_dir/vendor/node/lib/node_modules/grunt/bin
 
   status "Installing grunt-cli"
   
