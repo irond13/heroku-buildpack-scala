@@ -106,6 +106,8 @@ fi
     status "Exporting config vars to environment"
     export_env_dir $env_dir
   fi
+  
+  cd $ui_build_dir
 
   status "Installing dependencies"
   # Make npm output to STDOUT instead of its default STDERR
