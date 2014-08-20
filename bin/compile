@@ -113,9 +113,9 @@ fi
   status "Installing yo"
   npm install -g yo
   status "Installing grunt"
-  npm install -g grunt
+  npm install grunt
   echo "Installed grunt"
-  ls -la $ui_build_dir/vendor/node/lib/node_modules/grunt
+  #ls -la $ui_build_dir/vendor/node/lib/node_modules/grunt
 
   status "Installing grunt-cli"
   
