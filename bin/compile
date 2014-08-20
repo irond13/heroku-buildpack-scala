@@ -108,9 +108,6 @@ fi
     export_env_dir $env_dir
   fi
   
-  cd $ui_build_dir
-  pwd
-
   status "Installing dependencies"
   # Make npm output to STDOUT instead of its default STDERR
   npm install 2>&1 | indent
@@ -133,11 +130,6 @@ fi
 
 ls $ui_build_dir/node_modules
 
-exit 1
-
-echo "Path $PATH"
-ls -la $ui_build_dir/vendor/node/bin
-
 # Persist goodies like node-version in the slug
 mkdir -p $ui_build_dir/.heroku
 
@@ -155,6 +147,10 @@ if test -d $ui_build_dir/node_modules; then
   status "Caching node_modules directory for future builds"
   cp -r $ui_build_dir/node_modules $cache_dir/node
 fi
+
+grunt
+
+exit 1
 
 # Copy goodies to the cache
 cp -r $ui_build_dir/.heroku $cache_dir/node
