@@ -11,6 +11,10 @@ protip() {
   echo
 }
 
+status() {
+  echo "-----> $*"
+}
+
 function printStructure {
     echo "------> Folder structure in BUILD_DIR is: "
     ls -l ${BUILD_DIR}
