@@ -88,6 +88,7 @@ if test -d $ui_build_dir/node_modules; then
   npm rebuild 2>&1 | indent
 elif test -d $cache_dir/node/node_modules; then
   status "Restoring node_modules directory from cache"
+  ls $cache_dir/node/node_modules
   cp -r $cache_dir/node/node_modules $ui_build_dir/
 
   status "Pruning cached dependencies not specified in package.json"
