@@ -86,7 +86,6 @@ if test -d $ui_build_dir/node_modules; then
   npm rebuild 2>&1 | indent
 elif test -d $cache_dir/node/node_modules; then
   status "Restoring node_modules directory from cache"
-  ls $cache_dir/node/node_modules
   cp -r $cache_dir/node/node_modules $ui_build_dir/
 
   status "Pruning cached dependencies not specified in package.json"
@@ -97,6 +96,11 @@ elif test -d $cache_dir/node/node_modules; then
     npm rebuild 2>&1 | indent
   fi
 
+fi
+
+if test -d $cache_dir/node/bower_components; then
+  status "Restoring bower_components directory from cache"
+  cp -r $cache_dir/node/bower_components $ui_build_dir/app
 fi
 
 # Scope config var availability only to `npm install`
@@ -134,10 +138,7 @@ mkdir -p $cache_dir/node
 # If app has a node_modules directory, cache it.
 if test -d $ui_build_dir/node_modules; then
   status "Caching node_modules directory for future builds"
-  ls $ui_build_dir/node_modules
   cp -r $ui_build_dir/node_modules $cache_dir/node
-  status "cached"
-  ls $cache_dir/node/node_modules
 fi
 
 # Copy goodies to the cache
@@ -168,6 +169,12 @@ if [ -f $BUILD_DIR/$UI_FILES/bower.json ]; then
   bower install -g
 else
   echo "-----> No Bower.json found"
+fi
+
+# If app has a bower_components directory, cache it.
+if test -d $ui_build_dir/app/bower_components; then
+  status "Caching bower_components directory for future builds"
+  cp -r $ui_build_dir/bower_components $cache_dir/node
 fi
 
 echo "-----> Building runtime environment"
@@ -213,17 +220,11 @@ SBT_BINDIR="$SBT_USER_HOME"/bin
 # chdir as sbt expects
 cd $BUILD_DIR
 
-status "pre sbt cache"
-ls $cache_dir/node/node_modules
-
 # unpack cache
 CACHED_DIRS="$SBT_USER_HOME/.ivy2 $SBT_USER_HOME/boot $SBT_BINDIR target project/target project/boot"
 for DIR in $CACHED_DIRS; do
   cache_copy $DIR $CACHE_DIR $BUILD_DIR
 done
-
-status "post sbt cache"
-ls $cache_dir/node/node_modules
 
 # these are preliminary checks. actual version check happens below when attempting to download sbt boot.properties
 if ! test -e project/build.properties; then
@@ -313,8 +314,5 @@ if is_sbt_native_packager $BUILD_DIR || is_play $BUILD_DIR; then
     rm -rf $BUILD_DIR/target/resolution-cache
   fi
 fi
-
-status "final cache"
-ls $cache_dir/node/node_modules
 
 ###### SBT Setup END #####
