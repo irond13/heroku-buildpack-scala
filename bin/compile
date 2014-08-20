@@ -41,8 +41,8 @@ semver_range=$(cat $ui_build_dir/package.json | $bp_dir/vendor/jq -r .engines.no
 echo "Got semver $semver_range"
 
 # Resolve node version using semver.io
-#node_version=$(curl --silent --get --data-urlencode "range=${semver_range}" https://semver.io/node/resolve)
-node_version="0.10.28"
+node_version=$(curl --silent --get --data-urlencode "range=${semver_range}" https://semver.io/node/resolve)
+#node_version="0.10.28"
 
 echo "Checking node versions"
 
