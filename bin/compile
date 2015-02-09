@@ -115,10 +115,10 @@ fi
   npm install 2>&1 | indent
   status "Installing yo"
   npm install -g yo
-  #status "Installing grunt"
-  #npm install grunt
-  #status "Installing grunt-cli"
-  #npm install -g grunt-cli
+  status "Installing grunt"
+  npm install grunt
+  status "Installing grunt-cli"
+  npm install -g grunt-cli
   status "Installing bower"
   npm install -g bower
 )
