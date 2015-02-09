@@ -119,8 +119,8 @@ fi
   #npm install grunt
   #status "Installing grunt-cli"
   #npm install -g grunt-cli
-  #status "Installing bower"
-  #npm install -g bower
+  status "Installing bower"
+  npm install -g bower
 )
 
 # Persist goodies like node-version in the slug
